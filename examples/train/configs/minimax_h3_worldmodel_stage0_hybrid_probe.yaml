@@ -1,0 +1,121 @@
+# MiniMax-H3 camera-control repair: fresh pretrained weights, hybrid cumulative
+# action/PRoPE conditioning, parameter-free motion observer, and no audio path.
+
+models:
+  student:
+    _target_: fastvideo.train.models.minimax_h3.MiniMaxH3WorldModel
+    init_from: /datacc05/lizihao_wm/worldmodel/ckpts/MiniMax-H3
+    trainable: true
+    camera_conditioning: hybrid
+    action_representation: relative_pose
+    trainable_modules:
+      - action_adapter
+    # Cumulative relative pose is already unit-normalized.
+    action_channel_scales: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    action_normalized_clip: 1.0
+    action_embedding_scale: 8.0
+    action_learning_rate: 5.0e-4
+    action_motion_loss_weight: 2.0
+    # Force the model to use conditioning instead of copying a lightly noised
+    # future latent during the action-acquisition phase.
+    minimum_video_noise_sigma: 0.85
+    prope_learning_rate: 1.0e-4
+    prope_strength: 4.0
+    prope_base_strength: 1.0
+    prope_use_camera_intrinsics: false
+    motion_balanced_sampling: false
+    enable_gradient_checkpointing_type: full
+    attention_backend: TORCH_SDPA
+    lora:
+      enable: true
+      rank: 16
+      alpha: 16
+      target_modules:
+        - to_q
+        - to_k
+        - to_v
+        - to_out
+
+method:
+  _target_: fastvideo.train.methods.fine_tuning.worldmodel.MiniMaxH3WorldModelFineTuneMethod
+  temporal_delta_weight: 0.25
+  temporal_delta_warmup_steps: 5
+  # Flow ranking was removed because it rewarded texture differences without
+  # camera displacement. The frozen probe directly supervises visual motion.
+  camera_ranking_weight: 0.0
+  camera_ranking_margin_ratio: 0.0
+  camera_ranking_every_microbatches: 1
+  latent_motion_weight: 1.0
+  static_latent_motion_weight: 1.0
+  latent_motion_max_shift: 4
+  latent_motion_temperature: 0.02
+
+training:
+  distributed:
+    num_gpus: 8
+    sp_size: 2
+    tp_size: 1
+    hsdp_replicate_dim: 4
+    hsdp_shard_dim: 2
+    pin_cpu_memory: true
+
+  data:
+    data_path: /datacc05/lizihao_wm/worldmodel_prope/overfit/context_camera_motion_64
+    preprocessed_data_type: h3_worldmodel_prope
+    dataloader_num_workers: 2
+    train_batch_size: 1
+    training_cfg_rate: 0.0
+    seed: 20260903
+    num_latent_t: 37
+    num_height: 480
+    num_width: 832
+    num_frames: 124
+
+  optimizer:
+    learning_rate: 2.0e-5
+    betas: [0.9, 0.999]
+    weight_decay: 0.01
+    lr_scheduler: constant_with_warmup
+    lr_warmup_steps: 5
+
+  loop:
+    # Keep the single-sample action-acquisition run long enough for visible
+    # correct/static/reverse rollout separation.
+    max_train_steps: 100
+    # 1 sample/SP group x 4 data-parallel groups x 16 accumulation = 64.
+    gradient_accumulation_steps: 16
+
+  checkpoint:
+    output_dir: /datacc05/lizihao_wm/worldmodel_prope/runs/minimax_h3_stage0_hybrid_probe_overfit_bs64/checkpoints
+    training_state_checkpointing_steps: 10
+    # Preserve every 10-step milestone through checkpoint-100 for comparison.
+    checkpoints_total_limit: 12
+    resume_from_checkpoint: ""
+
+  tracker:
+    trackers: [wandb]
+    project_name: fastvideo_worldmodel
+    run_name: minimax_h3_stage0_hybrid_probe_overfit_bs64
+
+  model:
+    precondition_outputs: false
+    enable_gradient_checkpointing_type: full
+
+  dit_precision: bf16
+
+callbacks:
+  grad_clip:
+    _target_: fastvideo.train.callbacks.grad_clip.GradNormClipCallback
+    max_grad_norm: 1.0
+  worldmodel_validation:
+    _target_: fastvideo.train.callbacks.worldmodel_validation.WorldModelLossValidationCallback
+    data_path: /datacc05/lizihao_wm/worldmodel_prope/overfit/context_camera_motion_64
+    every_steps: 10
+    num_batches: 4
+    seed: 20260903
+    run_at_start: true
+
+pipeline:
+  dit_config:
+    action_dim: 6
+    prope_dim_range: [96, 108]

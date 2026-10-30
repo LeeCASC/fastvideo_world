@@ -1,0 +1,102 @@
+{
+  "h3_baseline_vs_ft2000_js00001_W": {
+    "sheet": "/home/lizihao/projects/military_world_model_agent/FastVideoWM/docs/training/assets/inference_review_zh_20261014/h3_baseline_vs_ft2000_js00001_W.jpg",
+    "videos": [
+      {
+        "label": "H3 baseline step-10000",
+        "path": "/datacc05/lizihao/outputs/h3_world/js_easy17_wasdijkl_baseline_vs_ft2000_20260917/baseline_50steps/videos/js_00001_W.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "H3 fine-tune step-2000",
+        "path": "/datacc05/lizihao/outputs/h3_world/js_easy17_wasdijkl_baseline_vs_ft2000_20260917/finetune2000_50steps/videos/js_00001_W.mp4",
+        "decoded_frames": 124
+      }
+    ]
+  },
+  "cross_model_latest_js00001_W": {
+    "sheet": "/home/lizihao/projects/military_world_model_agent/FastVideoWM/docs/training/assets/inference_review_zh_20261014/cross_model_latest_js00001_W.jpg",
+    "videos": [
+      {
+        "label": "H3 latest step-1000",
+        "path": "/datacc05/lizihao/outputs/h3_world/js_easy17_h3_latest_vs_fastvideowm_latest_20261009/h3_world/videos/js_00001_W.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "FastVideoWM latest step-400",
+        "path": "/datacc05/lizihao/outputs/h3_world/js_easy17_h3_latest_vs_fastvideowm_latest_20261009/fastvideowm/videos/js_00001/wasd/checkpoint-400/W.mp4",
+        "decoded_frames": 124
+      }
+    ]
+  },
+  "fastvideowm_step750_vs_1200_vs_1500_js00001_W": {
+    "sheet": "/home/lizihao/projects/military_world_model_agent/FastVideoWM/docs/training/assets/inference_review_zh_20261014/fastvideowm_step750_vs_1200_vs_1500_js00001_W.jpg",
+    "videos": [
+      {
+        "label": "FastVideoWM step-750",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_full_65389_20260927/inference_step750_single_action_20260930/row_00/checkpoint-750/W.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "FastVideoWM step-1200",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_js_easy16_step1200_20261012/videos/single/checkpoint-1200/js_00001/W.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "FastVideoWM step-1500",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_js_easy16_step1500_20261013/videos/single/checkpoint-1500/js_00001/W.mp4",
+        "decoded_frames": 124
+      }
+    ]
+  },
+  "fastvideowm_step200_row11_all8": {
+    "sheet": "/home/lizihao/projects/military_world_model_agent/FastVideoWM/docs/training/assets/inference_review_zh_20261014/fastvideowm_step200_row11_all8.jpg",
+    "videos": [
+      {
+        "label": "W",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_simple_camera_20261002/evaluation/step200_heldout_50steps/validation_row_11/wasd/checkpoint-200/W.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "A",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_simple_camera_20261002/evaluation/step200_heldout_50steps/validation_row_11/wasd/checkpoint-200/A.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "I",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_simple_camera_20261002/evaluation/step200_heldout_50steps/validation_row_11/ijkl/checkpoint-200/I.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "J",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_simple_camera_20261002/evaluation/step200_heldout_50steps/validation_row_11/ijkl/checkpoint-200/J.mp4",
+        "decoded_frames": 124
+      }
+    ]
+  },
+  "fastvideowm_step300_row11_all8": {
+    "sheet": "/home/lizihao/projects/military_world_model_agent/FastVideoWM/docs/training/assets/inference_review_zh_20261014/fastvideowm_step300_row11_all8.jpg",
+    "videos": [
+      {
+        "label": "W",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_multiaction_20261002/evaluation/step300_heldout_50steps/validation_row_11/wasd/checkpoint-300/W.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "A",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_multiaction_20261002/evaluation/step300_heldout_50steps/validation_row_11/wasd/checkpoint-300/A.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "I",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_multiaction_20261002/evaluation/step300_heldout_50steps/validation_row_11/ijkl/checkpoint-300/I.mp4",
+        "decoded_frames": 124
+      },
+      {
+        "label": "J",
+        "path": "/datacc05/lizihao/worldmodel/fastvideowm_multiaction_20261002/evaluation/step300_heldout_50steps/validation_row_11/ijkl/checkpoint-300/J.mp4",
+        "decoded_frames": 124
+      }
+    ]
+  }
+}

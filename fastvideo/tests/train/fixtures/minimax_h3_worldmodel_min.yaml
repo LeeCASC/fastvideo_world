@@ -1,0 +1,42 @@
+models:
+  student:
+    _target_: fastvideo.train.models.minimax_h3.MiniMaxH3WorldModel
+    init_from: MiniMaxAI/MiniMax-H3
+    trainable: true
+    attention_backend: TORCH_SDPA
+    lora:
+      enable: true
+      rank: 8
+      alpha: 8
+      target_modules: [to_q, to_k, to_v, to_out]
+
+method:
+  _target_: fastvideo.train.methods.fine_tuning.finetune.FineTuneMethod
+
+training:
+  distributed:
+    num_gpus: 8
+    sp_size: 8
+    hsdp_shard_dim: 8
+  data:
+    data_path: /tmp/minimax_h3_worldmodel
+    preprocessed_data_type: h3_worldmodel
+    train_batch_size: 1
+    training_cfg_rate: 0.0
+    num_latent_t: 37
+    num_height: 480
+    num_width: 832
+    num_frames: 124
+  optimizer:
+    learning_rate: 1.0e-4
+  loop:
+    max_train_steps: 1
+  model:
+    precondition_outputs: false
+    enable_gradient_checkpointing_type: full
+  dit_precision: bf16
+
+callbacks: {}
+pipeline:
+  dit_config:
+    action_dim: 6

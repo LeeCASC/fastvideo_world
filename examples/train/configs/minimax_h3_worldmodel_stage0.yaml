@@ -1,0 +1,94 @@
+# MiniMax-H3 camera-only Stage-0 world-model tuning on VWM train_v2.
+# The released video-generation transformer is reused; only attention LoRA,
+# the zero-initialized action adapter, and selected input/output layers train.
+
+models:
+  student:
+    _target_: fastvideo.train.models.minimax_h3.MiniMaxH3WorldModel
+    init_from: /datacc05/lizihao_wm/worldmodel/ckpts/MiniMax-H3
+    trainable: true
+    trainable_modules:
+      - action_adapter
+      - proj_in
+      - norm_out
+      - proj_out
+    enable_gradient_checkpointing_type: full
+    attention_backend: TORCH_SDPA
+    lora:
+      enable: true
+      rank: 8
+      alpha: 8
+      target_modules:
+        - to_q
+        - to_k
+        - to_v
+        - to_out
+
+method:
+  _target_: fastvideo.train.methods.fine_tuning.finetune.FineTuneMethod
+
+training:
+  distributed:
+    num_gpus: 8
+    sp_size: 2
+    tp_size: 1
+    hsdp_replicate_dim: 4
+    hsdp_shard_dim: 2
+    pin_cpu_memory: true
+
+  data:
+    data_path: /datacc05/lizihao_wm/worldmodel/preprocessed/train
+    preprocessed_data_type: h3_worldmodel
+    dataloader_num_workers: 2
+    train_batch_size: 1
+    training_cfg_rate: 0.0
+    seed: 20260828
+    num_latent_t: 37
+    num_height: 480
+    num_width: 832
+    num_frames: 124
+
+  optimizer:
+    learning_rate: 2.0e-5
+    betas: [0.9, 0.999]
+    weight_decay: 0.01
+    lr_scheduler: constant_with_warmup
+    lr_warmup_steps: 100
+
+  loop:
+    max_train_steps: 2000
+    # 1 sample/SP group × 4 data-parallel groups × 16 accumulation = 64.
+    gradient_accumulation_steps: 16
+
+  checkpoint:
+    output_dir: /datacc05/lizihao_wm/worldmodel/runs/minimax_h3_stage0_camera_lora_bs64/checkpoints
+    training_state_checkpointing_steps: 100
+    checkpoints_total_limit: 3
+    resume_from_checkpoint: ""
+
+  tracker:
+    trackers: [wandb]
+    project_name: fastvideo_worldmodel
+    run_name: minimax_h3_stage0_camera_lora_bs64
+
+  model:
+    precondition_outputs: false
+    enable_gradient_checkpointing_type: full
+
+  dit_precision: bf16
+
+callbacks:
+  grad_clip:
+    _target_: fastvideo.train.callbacks.grad_clip.GradNormClipCallback
+    max_grad_norm: 1.0
+  worldmodel_validation:
+    _target_: fastvideo.train.callbacks.worldmodel_validation.WorldModelLossValidationCallback
+    data_path: /datacc05/lizihao_wm/worldmodel/preprocessed/validation
+    every_steps: 100
+    num_batches: 2
+    seed: 20260828
+    run_at_start: true
+
+pipeline:
+  dit_config:
+    action_dim: 6

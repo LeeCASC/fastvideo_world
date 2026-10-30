@@ -1,0 +1,6 @@
+[
+  {"case_id": "heldout_js_row11_J", "data_path": "/datacc05/lizihao/worldmodel/fastvideowm_action_only_early_20260926/data/preprocessed/validation", "row_index": 11, "trajectory": "J", "seed": 20260929},
+  {"case_id": "heldout_js_row23_L", "data_path": "/datacc05/lizihao/worldmodel/fastvideowm_action_only_early_20260926/data/preprocessed/validation", "row_index": 23, "trajectory": "L", "seed": 20260929},
+  {"case_id": "heldout_multicam_row00_J", "data_path": "/datacc05/lizihao/worldmodel/fastvideowm_action_only_early_20260926/data/preprocessed/validation", "row_index": 0, "trajectory": "J", "seed": 20260930},
+  {"case_id": "heldout_multicam_row01_L", "data_path": "/datacc05/lizihao/worldmodel/fastvideowm_action_only_early_20260926/data/preprocessed/validation", "row_index": 1, "trajectory": "L", "seed": 20260930}
+]

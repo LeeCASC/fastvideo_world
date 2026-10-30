@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+"""Build representative frame sheets for the Chinese data-audit report.
+
+The source datasets are read-only. This script only writes derived report
+assets under the FastVideoWM documentation tree.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+import cv2
+from PIL import Image, ImageDraw, ImageFont
+
+
+OUT = Path(
+    "/home/lizihao/projects/military_world_model_agent/FastVideoWM/docs/training/"
+    "assets/data_pipeline_examples_zh_20261014"
+)
+
+
+EXAMPLES = [
+    {
+        "category": "static_camera",
+        "title": "静止相机过滤",
+        "items": [
+            {
+                "global_id": "train_v2:multicam_video:f18_aperture10__scene1000__cam10",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/multicam_video/000000/f18_aperture10__scene1000__cam10/video.mp4",
+                "reason": "camera_static",
+            },
+            {
+                "global_id": "train_v2:sekai_real_walking_hq:BcoaLf1KF9E_0021750_0023550",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/sekai_real_walking_hq/000000/BcoaLf1KF9E_0021750_0023550/video.mp4",
+                "reason": "camera_static",
+            },
+        ],
+    },
+    {
+        "category": "motion_review",
+        "title": "近静止或运动证据冲突，进入人工复核",
+        "items": [
+            {
+                "global_id": "train_v2:multicam_video:f18_aperture10__scene1038__cam01",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/multicam_video/000001/f18_aperture10__scene1038__cam01/video.mp4",
+                "reason": "camera_motion_review",
+            },
+            {
+                "global_id": "train_v2:sekai_real_walking_hq:Tsj9ab1IYXo_0071151_0072951",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/sekai_real_walking_hq/000000/Tsj9ab1IYXo_0071151_0072951/video.mp4",
+                "reason": "camera_motion_review",
+            },
+        ],
+    },
+    {
+        "category": "cpu_reject_duration",
+        "title": "CPU 过滤：视频短于 4.5 秒",
+        "items": [
+            {
+                "global_id": "js_refine_data:js_test/js_00000_tank.png.doubao-seedance-2.0-fast_1",
+                "video": "/home/lizihao/projects/worldmodel/train_data/js_refine_data/js_test/js_00000_tank.png.doubao-seedance-2.0-fast_1/video.mp4",
+                "reason": "video_shorter_than_4p5s",
+            },
+            {
+                "global_id": "train_v2:spatialvid:group_0001__00094653-a9c6-5558-8e2a-4119e7d64f36",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/spatialvid/000000/group_0001__00094653-a9c6-5558-8e2a-4119e7d64f36/video.mp4",
+                "reason": "video_shorter_than_4p5s",
+            },
+        ],
+    },
+    {
+        "category": "cpu_reject_action",
+        "title": "CPU 过滤：没有稳定的八方向分量",
+        "items": [
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_124_0033_W",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_124/videos/fasth3_t2v_js_1000_124_0033_W.mp4",
+                "reason": "no_stable_eight_direction_component",
+            },
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_long_0006_SL",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_long/videos/fasth3_t2v_js_1000_long_0006_SL.mp4",
+                "reason": "no_stable_eight_direction_component",
+            },
+        ],
+    },
+    {
+        "category": "cpu_reject_brightness",
+        "title": "CPU 过滤：极端亮度或近乎恒定画面",
+        "items": [
+            {
+                "global_id": "train_v2:multicam_video:f18_aperture10__scene1299__cam09",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/multicam_video/000001/f18_aperture10__scene1299__cam09/video.mp4",
+                "reason": "extreme_brightness",
+            },
+            {
+                "global_id": "train_v2:multicam_video:f18_aperture10__scene1339__cam05",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/multicam_video/000001/f18_aperture10__scene1339__cam05/video.mp4",
+                "reason": "extreme_brightness",
+            },
+        ],
+    },
+    {
+        "category": "cpu_review_rotation",
+        "title": "CPU 复核：突发旋转",
+        "items": [
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_long_0496_DK",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_long/videos/fasth3_t2v_js_1000_long_0496_DK.mp4",
+                "reason": "abrupt_rotation",
+            },
+            {
+                "global_id": "h3_js_easy:h3_i2v_js_easy_124_js_00002_J_fast_camera_only",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/h3_i2v_js_easy_124/videos/h3_i2v_js_easy_124_js_00002_J_fast_camera_only.mp4",
+                "reason": "abrupt_rotation",
+            },
+        ],
+    },
+    {
+        "category": "cpu_review_pose_mismatch",
+        "title": "CPU 复核：命令标签与估计姿态不一致",
+        "items": [
+            {
+                "global_id": "js_refine_data:ltx2p3_xzz/gm1000x4__realistic_military_0002_air_c_130j_super_hercules_taxi_clear_direct_rear_seed02",
+                "video": "/home/lizihao/projects/worldmodel/train_data/js_refine_data/ltx2p3_xzz/gm1000x4__realistic_military_0002_air_c_130j_super_hercules_taxi_clear_direct_rear_seed02/video.mp4",
+                "reason": "js_command_pose_mismatch",
+            },
+            {
+                "global_id": "js_refine_data:ltx2p3_xzz/gm1000x4__realistic_military_0002_air_c_130j_super_hercules_taxi_clear_direct_rear_seed04",
+                "video": "/home/lizihao/projects/worldmodel/train_data/js_refine_data/ltx2p3_xzz/gm1000x4__realistic_military_0002_air_c_130j_super_hercules_taxi_clear_direct_rear_seed04/video.mp4",
+                "reason": "js_command_pose_mismatch",
+            },
+        ],
+    },
+    {
+        "category": "cpu_review_quality_motion",
+        "title": "CPU 复核：疑似模糊、低纹理或速度突变",
+        "items": [
+            {
+                "global_id": "train_v2:multicam_video:f18_aperture10__scene1599__cam08",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/multicam_video/000001/f18_aperture10__scene1599__cam08/video.mp4",
+                "reason": "possible_blur_or_low_texture",
+            },
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_124_0297_W",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_124/videos/fasth3_t2v_js_1000_124_0297_W.mp4",
+                "reason": "translation_speed_spike",
+            },
+        ],
+    },
+    {
+        "category": "gpu_review_blur",
+        "title": "GPU-QC 复核：模糊标记",
+        "items": [
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_124_0233_W",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_124/videos/fasth3_t2v_js_1000_124_0233_W.mp4",
+                "reason": "blur",
+            },
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_124_0234_S",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_124/videos/fasth3_t2v_js_1000_124_0234_S.mp4",
+                "reason": "blur + visible_camera_motion_no",
+            },
+        ],
+    },
+    {
+        "category": "gpu_review_deformation",
+        "title": "GPU-QC 复核：主体变形",
+        "items": [
+            {
+                "global_id": "train_v2:multicam_video:f18_aperture10__scene1060__cam09",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/multicam_video/000001/f18_aperture10__scene1060__cam09/video.mp4",
+                "reason": "subject_deformation",
+            },
+            {
+                "global_id": "train_v2:multicam_video:f24_aperture5__scene1059__cam09",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/multicam_video/000004/f24_aperture5__scene1059__cam09/video.mp4",
+                "reason": "subject_deformation",
+            },
+        ],
+    },
+    {
+        "category": "gpu_review_texture_jitter",
+        "title": "GPU-QC 复核：纹理崩坏或平移抖动",
+        "items": [
+            {
+                "global_id": "train_v2:multicam_video:f35_aperture2.4__scene784__cam08",
+                "video": "/datacc05/datasets/vwm_datasets/train_v2/records/multicam_video/000007/f35_aperture2.4__scene784__cam08/video.mp4",
+                "reason": "texture_breakdown + translation_jitter",
+            },
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_124_0557_J",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_124/videos/fasth3_t2v_js_1000_124_0557_J.mp4",
+                "reason": "translation_jitter",
+            },
+        ],
+    },
+    {
+        "category": "gpu_review_motion",
+        "title": "GPU-QC 复核：可见相机运动为否或不确定",
+        "items": [
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_124_0002_S",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_124/videos/fasth3_t2v_js_1000_124_0002_S.mp4",
+                "reason": "visible_camera_motion_no",
+            },
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_124_0003_A",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_124/videos/fasth3_t2v_js_1000_124_0003_A.mp4",
+                "reason": "visible_camera_motion_uncertain",
+            },
+        ],
+    },
+    {
+        "category": "gpu_pass",
+        "title": "通过 GPU-QC 并进入候选训练池的样例",
+        "items": [
+            {
+                "global_id": "h3_js_easy:fasth3_t2v_js_1000_124_0001_W",
+                "video": "/home/lizihao/projects/worldmodel/vggt-omega/h3_js_easy/fasth3_t2v_js_1000_124/videos/fasth3_t2v_js_1000_124_0001_W.mp4",
+                "reason": "gpu_qc_pass",
+            },
+            {
+                "global_id": "js_refine_data:ltx2p3_xzz/gm1000x4__realistic_military_0001_land_m1a2_abrams_berm_climb_direct_front_seed01",
+                "video": "/home/lizihao/projects/worldmodel/train_data/js_refine_data/ltx2p3_xzz/gm1000x4__realistic_military_0001_land_m1a2_abrams_berm_climb_direct_front_seed01/video.mp4",
+                "reason": "gpu_qc_pass",
+            },
+        ],
+    },
+]
+
+
+def short_id(value: str) -> str:
+    return value.replace("/", "_")[-90:]
+
+
+def read_frames(path: Path) -> tuple[list, int]:
+    cap = cv2.VideoCapture(str(path))
+    if not cap.isOpened():
+        raise RuntimeError(f"cannot open {path}")
+    frames = []
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    cap.release()
+    if not frames:
+        raise RuntimeError(f"no frames in {path}")
+    indices = [0, len(frames) // 2, len(frames) - 1]
+    return [frames[index] for index in indices], len(frames)
+
+
+def make_sheet(category: dict) -> list[dict]:
+    sheet_dir = OUT / "sheets"
+    sheet_dir.mkdir(parents=True, exist_ok=True)
+    cell_w, cell_h = 420, 280
+    label_h = 64
+    canvas = Image.new("RGB", (cell_w * 3, (cell_h + label_h) * 2), "white")
+    draw = ImageDraw.Draw(canvas)
+    font = ImageFont.load_default()
+    output_items = []
+    for row, item in enumerate(category["items"]):
+        path = Path(item["video"])
+        frames, count = read_frames(path)
+        safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", short_id(item["global_id"]))
+        item_out = dict(item)
+        item_out.update({"frame_count_decoded": count, "representative_frames": []})
+        draw.text((row * 0 + 8, row * (cell_h + label_h) + 6),
+                  f"{item['global_id']} | {item['reason']}", fill="black", font=font)
+        for col, frame in enumerate(frames):
+            image = Image.fromarray(frame)
+            image.thumbnail((cell_w - 8, cell_h - 8))
+            x = col * cell_w + (cell_w - image.width) // 2
+            y = row * (cell_h + label_h) + label_h + (cell_h - image.height) // 2
+            canvas.paste(image, (x, y))
+            out_path = OUT / "frames" / f"{category['category']}__{safe}__{col}.jpg"
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            image.save(out_path, quality=92)
+            item_out["representative_frames"].append(str(out_path))
+    sheet = OUT / "sheets" / f"{category['category']}.jpg"
+    canvas.save(sheet, quality=92)
+    return [{**item, "sheet": str(sheet)} for item in output_items] if output_items else category["items"]
+
+
+def main() -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    completed = []
+    for category in EXAMPLES:
+        make_sheet(category)
+        completed.append(category)
+    (OUT / "example_manifest.json").write_text(
+        json.dumps(completed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    print(f"wrote {len(completed)} sheets to {OUT}")
+
+
+if __name__ == "__main__":
+    main()

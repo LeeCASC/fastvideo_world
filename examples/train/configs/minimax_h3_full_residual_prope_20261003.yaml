@@ -1,0 +1,125 @@
+models:
+  student:
+    _target_: fastvideo.train.models.minimax_h3.MiniMaxH3WorldModel
+    init_from: /datacc05/lizihao_wm/worldmodel/ckpts/MiniMax-H3
+    trainable: true
+    camera_conditioning: prope
+    trainable_modules:
+      - proj_in
+      - norm_out
+      - proj_out
+      - transformer_blocks.42.attn.to_q
+      - transformer_blocks.42.attn.to_k
+      - transformer_blocks.42.attn.to_v
+      - transformer_blocks.42.attn.to_out
+      - transformer_blocks.43.attn.to_q
+      - transformer_blocks.43.attn.to_k
+      - transformer_blocks.43.attn.to_v
+      - transformer_blocks.43.attn.to_out
+      - transformer_blocks.44.attn.to_q
+      - transformer_blocks.44.attn.to_k
+      - transformer_blocks.44.attn.to_v
+      - transformer_blocks.44.attn.to_out
+      - transformer_blocks.45.attn.to_q
+      - transformer_blocks.45.attn.to_k
+      - transformer_blocks.45.attn.to_v
+      - transformer_blocks.45.attn.to_out
+      - transformer_blocks.46.attn.to_q
+      - transformer_blocks.46.attn.to_k
+      - transformer_blocks.46.attn.to_v
+      - transformer_blocks.46.attn.to_out
+      - transformer_blocks.47.attn.to_q
+      - transformer_blocks.47.attn.to_k
+      - transformer_blocks.47.attn.to_v
+      - transformer_blocks.47.attn.to_out
+      - transformer_blocks.48.attn.to_q
+      - transformer_blocks.48.attn.to_k
+      - transformer_blocks.48.attn.to_v
+      - transformer_blocks.48.attn.to_out
+      - transformer_blocks.49.attn.to_q
+      - transformer_blocks.49.attn.to_k
+      - transformer_blocks.49.attn.to_v
+      - transformer_blocks.49.attn.to_out
+    train_lora: true
+    vision_only_conditioning: true
+    normalize_camera_translation: false
+    require_rebased_camera: true
+    prope_use_camera_intrinsics: false
+    prope_learning_rate: 0.0001
+    action_motion_loss_weight: 0.0
+    minimum_video_noise_sigma: 0.0
+    sampling_index_path: /datacc05/lizihao/worldmodel/fastvideowm_full_residual_prope_20261003/sampling_indices.json
+    enable_gradient_checkpointing_type: full
+    attention_backend: TORCH_SDPA
+    lora:
+      enable: true
+      rank: 64
+      alpha: 64
+      target_modules: [to_q, to_k, to_v, to_out]
+method:
+  _target_: fastvideo.train.methods.fine_tuning.worldmodel.MiniMaxH3WorldModelFineTuneMethod
+  temporal_delta_weight: 0.0
+  latent_motion_weight: 0.0
+  latent_motion_direction_weight: 0.0
+  camera_ranking_weight: 0.0
+  camera_sensitivity_weight: 0.0
+  camera_response_range_weight: 0.0
+training:
+  distributed:
+    num_gpus: 8
+    sp_size: 2
+    tp_size: 1
+    hsdp_replicate_dim: 2
+    hsdp_shard_dim: 4
+    pin_cpu_memory: true
+  data:
+    data_path: /datacc05/lizihao/worldmodel/fastvideowm_full_65389_20260927/preprocessed/all
+    preprocessed_data_type: h3_worldmodel_prope
+    dataloader_num_workers: 2
+    train_batch_size: 1
+    training_cfg_rate: 0.0
+    seed: 20261003
+    num_latent_t: 37
+    num_height: 480
+    num_width: 832
+    num_frames: 124
+  optimizer:
+    learning_rate: 0.00002
+    betas: [0.9, 0.99]
+    weight_decay: 0.001
+    lr_scheduler: constant_with_warmup
+    lr_warmup_steps: 100
+  loop:
+    max_train_steps: 3000
+    gradient_accumulation_steps: 8
+  checkpoint:
+    output_dir: /datacc05/lizihao/worldmodel/fastvideowm_full_residual_prope_20261003/runs/train/checkpoints
+    training_state_checkpointing_steps: 100
+    checkpoints_total_limit: 35
+    resume_from_checkpoint: ''
+  tracker:
+    trackers: [wandb]
+    project_name: fastvideo_worldmodel
+    run_name: h3_full_residual_prope_20261003
+  model:
+    precondition_outputs: false
+    enable_gradient_checkpointing_type: full
+  dit_precision: bf16
+callbacks:
+  grad_clip:
+    _target_: fastvideo.train.callbacks.grad_clip.GradNormClipCallback
+    max_grad_norm: 1.0
+    error_if_nonfinite: true
+  worldmodel_validation:
+    _target_: fastvideo.train.callbacks.worldmodel_validation.WorldModelLossValidationCallback
+    data_path: /datacc05/lizihao/worldmodel/fastvideowm_action_only_early_20260926/data/preprocessed/validation
+    every_steps: 100
+    num_batches: 12
+    seed: 20261003
+    run_at_start: true
+pipeline:
+  dit_config:
+    action_dim: 0
+    prope_dim_range: [0, 128]
+    prope_mode: residual
+    prope_parallel_residual_interval: 2

@@ -1,0 +1,468 @@
+env:
+  IMAGE_VERSION: "py3.12-latest"
+  BUILDKITE_CLEAN_CHECKOUT: true
+  # Slurm workers clone the immutable commit and initialize submodules inside
+  # their isolated container. The Buildkite login-plane checkout is a no-op.
+  BUILDKITE_GIT_SUBMODULES: false
+
+notify:
+  - github_commit_status:
+      context: "fastcheck-passed"
+    if: build.env("TEST_SCOPE") == "fastcheck" || build.env("TEST_SCOPE") == null
+  - github_commit_status:
+      context: "full-suite-passed"
+    if: build.env("TEST_SCOPE") == "full" || build.env("TEST_SCOPE") == "merge"
+  - github_commit_status:
+      context: "direct-test-completed"
+    if: build.env("TEST_SCOPE") == "direct"
+  - github_commit_status:
+      context: "scheduled-ssim-passed"
+    if: build.env("TEST_SCOPE") == "scheduled"
+
+# This is the complete active GPU CI surface. Every command is a trusted host
+# dispatcher, and every test payload executes inside the Slinky Slurm tray.
+# fastvideo/tests/modal remains available only for an explicit manual rollback;
+# no active pipeline or slash-command route invokes it.
+steps:
+  - label: ":microscope: Encoder Tests"
+    key: "encoder"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,encoder,/) ||
+      build.env("TEST_SCOPE") == "fastcheck" ||
+      build.env("TEST_SCOPE") == null ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "encoder" || build.env("TEST_TYPE") == "encoder_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "encoder_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":microscope: VAE Tests"
+    key: "vae"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,vae,/) ||
+      build.env("TEST_SCOPE") == "fastcheck" ||
+      build.env("TEST_SCOPE") == null ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "vae" || build.env("TEST_TYPE") == "vae_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "vae_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":microscope: Transformer Tests"
+    key: "transformer"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,transformer,/) ||
+      build.env("TEST_SCOPE") == "fastcheck" ||
+      build.env("TEST_SCOPE") == null ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "transformer" || build.env("TEST_TYPE") == "transformer_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "transformer_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":microscope: Kernel Tests"
+    key: "kernel-tests"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,kernel-tests,/) ||
+      build.env("TEST_SCOPE") == "fastcheck" ||
+      build.env("TEST_SCOPE") == null ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "kernel_tests" || build.env("TEST_TYPE") == "kernel_tests_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "kernel_tests_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":microscope: Unit Tests"
+    key: "unit"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,unit,/) ||
+      build.env("TEST_SCOPE") == "fastcheck" ||
+      build.env("TEST_SCOPE") == null ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "unit_test" || build.env("TEST_TYPE") == "unit_test_ci"))
+    command: "/opt/fastvideo-ci-runner/run-unit"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "unit_test_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":microscope: DreamVerse App Tests"
+    key: "dreamverse"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,dreamverse,/) ||
+      build.env("TEST_SCOPE") == "fastcheck" ||
+      build.env("TEST_SCOPE") == null ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "dreamverse_app" || build.env("TEST_TYPE") == "dreamverse_app_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "dreamverse_app_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Golden-Gate Tests"
+    key: "golden-gate"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,golden-gate,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "golden_gate" || build.env("TEST_TYPE") == "golden_gate_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "golden_gate_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":bar_chart: SSIM Tests"
+    key: "ssim"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      build.env("TEST_SCOPE") == "scheduled" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,ssim,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "ssim" || build.env("TEST_TYPE") == "ssim_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    concurrency: 1
+    concurrency_group: "fastvideo/slinky/whole-tray"
+    env:
+      TEST_TYPE: "ssim_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+        - exit_status: 1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: LoRA Inference Tests"
+    key: "lora-inference"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,lora-inference,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "inference_lora" || build.env("TEST_TYPE") == "inference_lora_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "inference_lora_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: LoRA Extraction Tests"
+    key: "lora-extraction"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,lora-extraction,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "lora_extraction" || build.env("TEST_TYPE") == "lora_extraction_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "lora_extraction_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Training Tests"
+    key: "training"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,training,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "training" || build.env("TEST_TYPE") == "training_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    concurrency: 1
+    concurrency_group: "fastvideo/slinky/whole-tray"
+    env:
+      TEST_TYPE: "training_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Distillation DMD Tests"
+    key: "distillation"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,distillation,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "distillation_dmd" || build.env("TEST_TYPE") == "distillation_dmd_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "distillation_dmd_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Self-Forcing Tests"
+    key: "self-forcing"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,self-forcing,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "self_forcing" || build.env("TEST_TYPE") == "self_forcing_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "self_forcing_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: LoRA Training Tests"
+    key: "lora-training"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,lora-training,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "training_lora" || build.env("TEST_TYPE") == "training_lora_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "training_lora_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+        - exit_status: 1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Training Tests VSA"
+    key: "training-vsa"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,training-vsa,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "training_vsa" || build.env("TEST_TYPE") == "training_vsa_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "training_vsa_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+        - exit_status: 1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Inference Tests VMoBA"
+    key: "inference-vmoba"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,inference-vmoba,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "inference_vmoba" || build.env("TEST_TYPE") == "inference_vmoba_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "inference_vmoba_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Performance Tests"
+    key: "performance"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,performance,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "performance" || build.env("TEST_TYPE") == "performance_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "performance_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: API Server Tests"
+    key: "api-server"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,api-server,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "api_server" || build.env("TEST_TYPE") == "api_server_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "api_server_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Train Framework Tests"
+    key: "train-framework"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,train-framework,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "train_framework" || build.env("TEST_TYPE") == "train_framework_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "train_framework_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"
+
+  - label: ":test_tube: Eval Metrics Tests"
+    key: "eval"
+    if: |
+      build.env("TEST_SCOPE") == "full" ||
+      (build.env("TEST_SCOPE") == "merge" &&
+       build.env("MERGE_TEST_PLAN") =~ /,eval,/) ||
+      (build.env("TEST_SCOPE") == "direct" &&
+       (build.env("TEST_TYPE") == "eval" || build.env("TEST_TYPE") == "eval_ci"))
+    command: "/opt/fastvideo-ci-runner/run-ci"
+    timeout_in_minutes: 90
+    env:
+      TEST_TYPE: "eval_ci"
+    retry:
+      automatic:
+        - exit_status: 128
+          limit: 3
+        - exit_status: -1
+          limit: 2
+    agents:
+      queue: "ci-runner"

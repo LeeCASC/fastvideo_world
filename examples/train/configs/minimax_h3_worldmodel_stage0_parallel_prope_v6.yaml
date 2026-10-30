@@ -1,0 +1,124 @@
+# H3 camera-control repair v6: preserve pretrained attention and learn a
+# camera-specific spatial residual. Eight evenly spaced blocks run a second,
+# extrinsics-only PRoPE attention. Static camera paths are exact identity
+# transforms, while moving/reversed paths generate direction-aware deltas.
+
+models:
+  student:
+    _target_: fastvideo.train.models.minimax_h3.MiniMaxH3WorldModel
+    init_from: /datacc05/lizihao_wm/worldmodel/ckpts/MiniMax-H3
+    trainable: true
+    camera_conditioning: hybrid
+    action_representation: relative_pose
+    trainable_modules:
+      - action_adapter
+    action_channel_scales: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    action_normalized_clip: 1.0
+    action_embedding_scale: 4.0
+    action_fourier_frequencies: 2
+    action_learning_rate: 2.0e-4
+    action_motion_loss_weight: 0.0
+    minimum_video_noise_sigma: 0.5
+    train_lora: true
+    prope_learning_rate: 5.0e-4
+    prope_strength: 4.0
+    # The fixed residual gives moving paths an immediate geometry signal;
+    # static paths still have zero delta because P is exactly identity.
+    prope_base_strength: 0.25
+    prope_use_camera_intrinsics: false
+    motion_balanced_sampling: false
+    enable_gradient_checkpointing_type: full
+    attention_backend: TORCH_SDPA
+    lora:
+      enable: true
+      rank: 16
+      alpha: 16
+      target_modules:
+        - to_q
+        - to_k
+        - to_v
+        - to_out
+
+method:
+  _target_: fastvideo.train.methods.fine_tuning.worldmodel.MiniMaxH3WorldModelFineTuneMethod
+  temporal_delta_weight: 0.2
+  temporal_delta_warmup_steps: 5
+  camera_ranking_weight: 0.0
+  camera_ranking_margin_ratio: 0.0
+  camera_ranking_every_microbatches: 1
+  camera_counterfactual_variants: [static, reverse]
+  latent_motion_weight: 2.0
+  static_latent_motion_weight: 1.0
+  latent_motion_max_shift: 4
+  latent_motion_temperature: 0.02
+
+training:
+  distributed:
+    num_gpus: 8
+    sp_size: 2
+    tp_size: 1
+    hsdp_replicate_dim: 4
+    hsdp_shard_dim: 2
+    pin_cpu_memory: true
+
+  data:
+    data_path: /datacc05/lizihao_wm/worldmodel_prope/overfit/camera_moving_v3_32
+    preprocessed_data_type: h3_worldmodel_prope
+    dataloader_num_workers: 2
+    train_batch_size: 1
+    training_cfg_rate: 0.0
+    seed: 20260908
+    num_latent_t: 37
+    num_height: 480
+    num_width: 832
+    num_frames: 124
+
+  optimizer:
+    learning_rate: 1.0e-5
+    betas: [0.9, 0.999]
+    weight_decay: 0.01
+    lr_scheduler: constant_with_warmup
+    lr_warmup_steps: 5
+
+  loop:
+    # Four DP groups keep each 100-step architecture diagnosis short.
+    max_train_steps: 100
+    gradient_accumulation_steps: 1
+
+  checkpoint:
+    output_dir: /datacc05/lizihao_wm/worldmodel_prope/runs/minimax_h3_stage0_parallel_prope_v6/checkpoints
+    training_state_checkpointing_steps: 10
+    checkpoints_total_limit: 12
+    resume_from_checkpoint: ""
+
+  tracker:
+    trackers: [wandb]
+    project_name: fastvideo_worldmodel
+    run_name: minimax_h3_stage0_parallel_prope_v6
+
+  model:
+    precondition_outputs: false
+    enable_gradient_checkpointing_type: full
+
+  dit_precision: bf16
+
+callbacks:
+  grad_clip:
+    _target_: fastvideo.train.callbacks.grad_clip.GradNormClipCallback
+    max_grad_norm: 1.0
+  worldmodel_validation:
+    _target_: fastvideo.train.callbacks.worldmodel_validation.WorldModelLossValidationCallback
+    data_path: /datacc05/lizihao_wm/worldmodel_prope/overfit/camera_moving_v3_32
+    every_steps: 10
+    num_batches: 4
+    seed: 20260908
+    run_at_start: true
+
+pipeline:
+  dit_config:
+    action_dim: 31
+    action_injection_interval: 8
+    action_residual_scale: 0.25
+    action_residual_clip: 0.1
+    prope_dim_range: [96, 108]
+    prope_parallel_residual_interval: 6

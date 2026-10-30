@@ -1,0 +1,93 @@
+# Diagnostic only: paired videos from the same JS-easy scene, measured camera
+# poses, first-frame vision, and pure video rectified-flow loss. Do not launch
+# until the conditioned H3 parquet and sampling index pass the data audit.
+models:
+  student:
+    _target_: fastvideo.train.models.minimax_h3.MiniMaxH3WorldModel
+    init_from: /datacc05/lizihao_wm/worldmodel/ckpts/MiniMax-H3
+    trainable: true
+    camera_conditioning: prope
+    trainable_modules: [proj_in, norm_out, proj_out]
+    train_lora: true
+    vision_only_conditioning: true
+    normalize_camera_translation: false
+    require_rebased_camera: true
+    prope_use_camera_intrinsics: true
+    action_motion_loss_weight: 0.0
+    sampling_index_path: /datacc05/lizihao/worldmodel/fastvideowm_action_only_v1_20260925/js_easy_pose_overfit/stage1_jl_indices.json
+    enable_gradient_checkpointing_type: full
+    attention_backend: TORCH_SDPA
+    lora:
+      enable: true
+      rank: 32
+      alpha: 32
+      target_modules: [to_q, to_k, to_v, to_out]
+
+# Cosmos-style first diagnostic: the only optimization target is video flow MSE.
+# Counterfactual/static/shuffle probes belong in validation, not the gradient.
+method:
+  _target_: fastvideo.train.methods.fine_tuning.finetune.FineTuneMethod
+
+training:
+  distributed:
+    num_gpus: 8
+    sp_size: 2
+    tp_size: 1
+    hsdp_replicate_dim: 4
+    hsdp_shard_dim: 2
+    pin_cpu_memory: true
+  data:
+    data_path: /datacc05/lizihao/worldmodel/fastvideowm_action_only_v1_20260925/js_easy_pose_overfit/preprocessed/train
+    preprocessed_data_type: h3_worldmodel_prope
+    dataloader_num_workers: 2
+    train_batch_size: 1
+    training_cfg_rate: 0.0
+    seed: 20260926
+    num_latent_t: 37
+    num_height: 480
+    num_width: 832
+    num_frames: 124
+  optimizer:
+    learning_rate: 5.0e-5
+    betas: [0.9, 0.99]
+    weight_decay: 0.001
+    lr_scheduler: constant_with_warmup
+    lr_warmup_steps: 20
+  loop:
+    # 1 sample x 4 data-parallel groups x 2 accumulation = total BS 8.
+    max_train_steps: 200
+    gradient_accumulation_steps: 2
+  checkpoint:
+    output_dir: /datacc05/lizihao/worldmodel/fastvideowm_action_only_v1_20260925/runs/js_easy_pose_overfit/checkpoints
+    training_state_checkpointing_steps: 50
+    checkpoints_total_limit: 8
+    resume_from_checkpoint: ""
+  tracker:
+    trackers: [wandb]
+    project_name: fastvideo_worldmodel
+    run_name: minimax_h3_js_easy_pose_overfit_jl
+  model:
+    precondition_outputs: false
+    enable_gradient_checkpointing_type: full
+  dit_precision: bf16
+
+callbacks:
+  grad_clip:
+    _target_: fastvideo.train.callbacks.grad_clip.GradNormClipCallback
+    max_grad_norm: 1.0
+    error_if_nonfinite: true
+  worldmodel_validation:
+    _target_: fastvideo.train.callbacks.worldmodel_validation.WorldModelLossValidationCallback
+    data_path: /datacc05/lizihao/worldmodel/fastvideowm_action_only_early_20260926/data/preprocessed/validation
+    every_steps: 50
+    num_batches: 8
+    seed: 20260926
+    run_at_start: true
+
+pipeline:
+  dit_config:
+    action_dim: 0
+    action_injection_interval: 0
+    prope_dim_range: [96, 108]
+    prope_mode: exact
+    prope_parallel_residual_interval: 0
